@@ -1,5 +1,5 @@
 {
-  "name": "claw-launcher",
+  "name": "ai-native-launcher",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
