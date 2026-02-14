@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "claw-launcher",
+    "name": "Claw Launcher",
     "slug": "claw-launcher",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,9 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.claw.launcher"
     },
     "android": {
+      "package": "com.claw.launcher",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -33,16 +35,28 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#000000",
           "dark": {
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "./modules/launcher-kit/app.plugin.js"
     ],
+    "autolinking": {
+      "nativeModulesDir": "./modules",
+      "exclude": ["launcher-kit"]
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "04285bda-ebff-4f45-91f4-7bdd77cdc87e"
+      }
+    },
+    "owner": "vijayabaskar56"
   }
 }

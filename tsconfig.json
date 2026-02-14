@@ -5,6 +5,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "launcher-kit": [
+        "./modules/launcher-kit/src/index.ts"
       ]
     }
   },
@@ -12,6 +15,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "expo-env.d.ts",
+    "modules/**/*.ts"
   ]
 }
