@@ -1,0 +1,7 @@
+{
+  "platforms": ["android"],
+  "name": "LauncherKit",
+  "android": {
+    "modules": ["expo.modules.launcherkit.LauncherKitModule"]
+  }
+}
