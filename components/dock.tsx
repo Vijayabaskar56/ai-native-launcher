@@ -5,12 +5,15 @@ import { AppInfo } from '@/hooks/use-installed-apps';
 
 interface DockProps {
   apps: AppInfo[];
+  favorites: string[];
   onAppPress: (app: AppInfo) => void;
 }
 
-export function Dock({ apps, onAppPress }: DockProps) {
+export function Dock({ apps, favorites, onAppPress }: DockProps) {
   const { colors } = useTheme();
-  const dockApps = apps.slice(0, 4);
+  const favoriteApps = apps.filter(app => favorites.includes(app.packageName));
+  const nonFavoriteApps = apps.filter(app => !favorites.includes(app.packageName));
+  const dockApps = [...favoriteApps, ...nonFavoriteApps].slice(0, 4);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.dock }]}>

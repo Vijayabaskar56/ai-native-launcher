@@ -7,10 +7,12 @@ import { AppDrawer } from '@/components/app-drawer';
 import { SettingsDrawer } from '@/components/settings-drawer';
 import { useInstalledApps } from '@/hooks/use-installed-apps';
 import { useTheme } from '@/hooks/use-app-theme';
+import { useFavorites } from '@/hooks/use-favorites';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
   const { apps, loading, launchApp } = useInstalledApps();
+  const { favorites, isFavorite, toggleFavorite } = useFavorites();
   const [settingsVisible, setSettingsVisible] = useState(false);
 
   if (loading) {
@@ -24,8 +26,6 @@ export default function HomeScreen() {
   const handleAppPress = async (app: { packageName: string }) => {
     await launchApp(app.packageName);
   };
-
-  const defaultDockApps = apps.slice(0, 4);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -43,10 +43,16 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.bottomArea}>
-        <Dock apps={defaultDockApps} onAppPress={handleAppPress} />
+        <Dock apps={apps} favorites={favorites} onAppPress={handleAppPress} />
       </View>
 
-      <AppDrawer apps={apps} onAppPress={handleAppPress} />
+      <AppDrawer
+        apps={apps}
+        onAppPress={handleAppPress}
+        favorites={favorites}
+        isFavorite={isFavorite}
+        toggleFavorite={toggleFavorite}
+      />
 
       <SettingsDrawer
         visible={settingsVisible}

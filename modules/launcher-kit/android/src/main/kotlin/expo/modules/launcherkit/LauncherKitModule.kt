@@ -1,16 +1,20 @@
 package expo.modules.launcherkit
 
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
+import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
+import android.content.pm.ShortcutInfo
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.net.Uri
 import android.os.Build
+import android.os.Process
 import android.provider.Settings
 import android.util.Base64
 import expo.modules.kotlin.Promise
-import expo.modules.kotlin.exception.Coded
+import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.ByteArrayOutputStream
@@ -107,6 +111,95 @@ class LauncherKitModule : Module() {
         promise.resolve(true)
       }
     }
+
+    AsyncFunction("getAppShortcuts") { packageName: String, promise: Promise ->
+      try {
+        val context = appContext!!.reactContext!!
+        val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+
+        if (!launcherApps.hasShortcutHostPermission()) {
+          promise.resolve(emptyList<Map<String, String>>())
+          return@AsyncFunction
+        }
+
+        val query = LauncherApps.ShortcutQuery().apply {
+          setQueryFlags(
+            LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
+            LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
+            LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED
+          )
+          setPackage(packageName)
+        }
+
+        val shortcuts: List<ShortcutInfo>? = try {
+          launcherApps.getShortcuts(query, Process.myUserHandle())
+        } catch (e: SecurityException) {
+          null
+        }
+
+        val result: List<Map<String, String>> = if (shortcuts != null) {
+          shortcuts.map { shortcut ->
+            val iconDrawable = try {
+              launcherApps.getShortcutIconDrawable(shortcut, context.resources.displayMetrics.densityDpi)
+            } catch (e: Exception) {
+              null
+            }
+            val iconBase64 = iconDrawable?.let { drawableToBase64(it) } ?: ""
+            
+            mapOf(
+              "id" to shortcut.id,
+              "packageName" to shortcut.`package`,
+              "shortLabel" to (shortcut.shortLabel?.toString() ?: ""),
+              "longLabel" to (shortcut.longLabel?.toString() ?: ""),
+              "icon" to iconBase64
+            )
+          }
+        } else {
+          emptyList()
+        }
+
+        promise.resolve(result)
+      } catch (e: Exception) {
+        promise.resolve(emptyList<Map<String, String>>())
+      }
+    }
+
+    AsyncFunction("launchShortcut") { packageName: String, shortcutId: String, promise: Promise ->
+      try {
+        val context = appContext!!.reactContext!!
+        val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+
+        if (!launcherApps.hasShortcutHostPermission()) {
+          promise.reject(LauncherKitException("No shortcut permission - set as default launcher"))
+          return@AsyncFunction
+        }
+
+        val query = LauncherApps.ShortcutQuery().apply {
+          setQueryFlags(
+            LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
+            LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
+            LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED
+          )
+          setPackage(packageName)
+        }
+
+        val shortcuts = try {
+          launcherApps.getShortcuts(query, Process.myUserHandle())
+        } catch (e: SecurityException) {
+          null
+        }
+        val shortcut = shortcuts?.find { it.id == shortcutId }
+
+        if (shortcut != null) {
+          launcherApps.startShortcut(shortcut, null, null)
+          promise.resolve(null)
+        } else {
+          promise.reject(LauncherKitException("Shortcut not found: $shortcutId"))
+        }
+      } catch (e: Exception) {
+        promise.reject(LauncherKitException("Failed to launch shortcut: ${e.message}", e))
+      }
+    }
   }
 
   private fun getLaunchableApps(): List<android.content.pm.ApplicationInfo> {
@@ -145,8 +238,8 @@ class LauncherKitModule : Module() {
   }
 }
 
-class LauncherKitException(message: String, cause: Throwable? = null) : Coded {
-  override val code: String = "ERR_LAUNCHER_KIT"
-  override val message: String = message
-  override val cause: Throwable? = cause
-}
+class LauncherKitException(message: String, cause: Throwable? = null) : CodedException(
+  code = "ERR_LAUNCHER_KIT",
+  message = message,
+  cause = cause
+)

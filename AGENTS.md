@@ -2,14 +2,85 @@
 
 This document provides guidelines for AI agents working on the Claw Launcher codebase.
 
+## Plan Mode
+
+- Make the plan extremely concise. Sacrifice grammar for the sake of concision.
+- At the end of each plan, give me a list of unresolved questions to answer, if any.
+
 ## Project Overview
 
 Claw Launcher is an Android-only launcher application built with:
+
 - **Expo SDK 54** with React Native 0.81.5
 - **Expo Router** for file-based navigation
 - **Tailwind CSS v4** with NativeWind v5 and react-native-css
 - **React Native Reanimated** for animations
 - **Custom native module** (LauncherKit) for Android system integration
+
+## Architecture
+
+This project follows a **Layered Architecture** pattern:
+
+### React Native Layer (UI & Business Logic)
+Handles everything possible in React Native:
+- **Navigation**: Expo Router file-based routing
+- **State Management**: React hooks (useState, useEffect, useCallback)
+- **Theme**: Light/dark mode with system detection
+- **Animations**: React Native Reanimated
+- **Gestures**: React Native Gesture Handler
+- **UI Components**: All visual rendering
+- **Styling**: Tailwind CSS v4 with NativeWind v5 and react-native-css
+- **Storage**: AsyncStorage for user preferences
+
+### Native Module Layer (LauncherKit)
+Handles only functionality that requires Android system APIs:
+- `getInstalledApps()` - Query PackageManager for launchable apps
+- `launchApp()` - Intent-based app launching with FLAG_ACTIVITY_NEW_TASK
+- `openAppSettings()` - Open Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+- `uninstallApp()` - Trigger Intent.ACTION_DELETE
+- `hasQueryAllPackagesPermission()` - Check QUERY_ALL_PACKAGES permission
+
+### Integration Pattern
+```
+React Native UI → Hooks (use-installed-apps.ts) → LauncherKit (TS API) → Native Kotlin Module
+```
+
+### Decision Framework
+When adding new functionality:
+1. **Can it be done in React Native?** → Do it in React Native
+2. **Does it require Android system APIs?** → Add to LauncherKit native module
+3. **Does it require platform-specific UI?** → Use native module for data, RN for UI
+
+### Examples
+| Functionality | Layer | Reason |
+|---------------|-------|--------|
+| App grid display | React Native | Pure UI rendering |
+| Swipe gestures | React Native | Reanimated + Gesture Handler |
+| Get installed apps | Native Module | Requires PackageManager API |
+| Launch an app | Native Module | Requires Intent system |
+| Search filtering | React Native | Client-side array filtering |
+| App favorites | React Native | AsyncStorage persistence |
+| Wallpaper | Native Module | Requires WallpaperManager API |
+
+## Reference Implementation
+
+**Goal**: Replace all features from Kvaesitso launcher (`references/Kvaesitso/`)
+
+When working on new features or design decisions:
+- Refer to `references/Kvaesitso/` for UI/UX patterns and feature implementations
+- Study how Kvaesitso implements similar functionality natively
+- Adapt native patterns to React Native where possible
+- Add native module APIs only when system access is required
+
+### Future Native Functionality (Needs LauncherKit)
+- Permission request flow (QUERY_ALL_PACKAGES)
+- Wallpaper access (WallpaperManager)
+- Home screen widgets (AppWidgetHost)
+- Notification badges (NotificationListenerService)
+- Recent apps (UsageStatsManager)
+- Set as default launcher prompt
+- App shortcuts (LauncherApps.getShortcutConfigurations)
+- Badged icons (notification counts)
 
 ## Build Commands
 
@@ -68,6 +139,7 @@ references/             # Reference implementations (git-ignored)
 ### Imports
 
 Group imports in this order, separated by blank lines:
+
 1. React and React Native imports
 2. Third-party libraries (expo, react-navigation, etc.)
 3. Local components (using `@/` alias)
@@ -76,17 +148,17 @@ Group imports in this order, separated by blank lines:
 
 ```tsx
 // React/React Native
-import { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import { useState, useEffect, useCallback } from "react";
+import { View, StyleSheet, Text } from "react-native";
 
 // Third-party
-import Animated, { useSharedValue, withSpring } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, withSpring } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 // Local imports with @ alias
-import { useTheme } from '@/hooks/use-app-theme';
-import { AppIcon } from './app-icon';
-import { AppInfo } from '@/hooks/use-installed-apps';
+import { useTheme } from "@/hooks/use-app-theme";
+import { AppIcon } from "./app-icon";
+import { AppInfo } from "@/hooks/use-installed-apps";
 ```
 
 ### Naming Conventions
@@ -100,6 +172,7 @@ import { AppInfo } from '@/hooks/use-installed-apps';
 ### Component Patterns
 
 Use named exports for components:
+
 ```tsx
 export function ComponentName({ prop1, prop2 }: Props) {
   // Implementation
@@ -107,6 +180,7 @@ export function ComponentName({ prop1, prop2 }: Props) {
 ```
 
 Define styles using `StyleSheet.create` at the bottom of the file:
+
 ```tsx
 const styles = StyleSheet.create({
   container: {
@@ -116,12 +190,13 @@ const styles = StyleSheet.create({
 ```
 
 For Tailwind CSS styling, import from `@/src/tw`:
+
 ```tsx
-import { View, Text } from '@/tw';
+import { View, Text } from "@/tw";
 
 <View className="flex-1 bg-white p-4">
   <Text className="text-xl font-bold text-gray-900">Hello</Text>
-</View>
+</View>;
 ```
 
 ### TypeScript
@@ -154,7 +229,7 @@ const loadApps = useCallback(async () => {
     const installedApps = await LauncherKit.getInstalledApps();
     setApps(installedApps);
   } catch (error) {
-    console.error('Failed to load apps:', error);
+    console.error("Failed to load apps:", error);
     setApps(MOCK_APPS); // Fallback
   }
 }, []);
@@ -163,6 +238,7 @@ const loadApps = useCallback(async () => {
 ### Animations
 
 Use React Native Reanimated for animations:
+
 - `useSharedValue` for animated values
 - `useAnimatedStyle` for style transformations
 - `withSpring` for spring animations
@@ -179,6 +255,7 @@ const animatedStyle = useAnimatedStyle(() => ({
 ### Theme Support
 
 Always use the theme context for colors:
+
 ```tsx
 const { colors } = useTheme();
 
@@ -192,6 +269,7 @@ Available colors: `background`, `surface`, `text`, `textSecondary`, `accent`, `b
 Located in `modules/launcher-kit/`. Uses modern Expo Modules API.
 
 Available methods:
+
 - `getInstalledApps(): Promise<AppInfo[]>` - Get all launchable apps
 - `launchApp(packageName: string): Promise<void>` - Launch an app
 - `openAppSettings(packageName: string): Promise<void>` - Open app settings

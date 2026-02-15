@@ -6,6 +6,14 @@ export interface AppInfo {
   icon: string;
 }
 
+export interface ShortcutInfo {
+  id: string;
+  packageName: string;
+  shortLabel: string;
+  longLabel: string;
+  icon: string;
+}
+
 const LauncherKit = requireNativeModule('LauncherKit');
 
 export default {
@@ -26,5 +34,11 @@ export default {
   },
   requestQueryAllPackagesPermission: (): Promise<boolean> => {
     return LauncherKit.requestQueryAllPackagesPermission();
+  },
+  getAppShortcuts: (packageName: string): Promise<ShortcutInfo[]> => {
+    return LauncherKit.getAppShortcuts(packageName);
+  },
+  launchShortcut: (packageName: string, shortcutId: string): Promise<void> => {
+    return LauncherKit.launchShortcut(packageName, shortcutId);
   },
 };

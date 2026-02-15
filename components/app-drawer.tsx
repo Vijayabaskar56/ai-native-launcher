@@ -4,11 +4,11 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  FlatList,
   Dimensions,
   Keyboard,
   Pressable,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -16,23 +16,34 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/hooks/use-app-theme';
 import { AppIcon } from './app-icon';
 import { AppInfo } from '@/hooks/use-installed-apps';
+import LauncherKit, { ShortcutInfo } from '@/modules/launcher-kit';
+import { AppLongPressMenu } from './app-long-press-menu';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MAX_TRANSLATE_Y = -SCREEN_HEIGHT * 0.85;
+const DRAWER_HEIGHT = SCREEN_HEIGHT * 0.85;
+const HANDLE_HEIGHT = 40;
+const MAX_TRANSLATE_Y = -DRAWER_HEIGHT;
 const DRAWER_THRESHOLD = -100;
 
 interface AppDrawerProps {
   apps: AppInfo[];
   onAppPress: (app: AppInfo) => void;
+  favorites: string[];
+  isFavorite: (packageName: string) => boolean;
+  toggleFavorite: (packageName: string) => Promise<void>;
 }
 
-export function AppDrawer({ apps, onAppPress }: AppDrawerProps) {
+export function AppDrawer({ apps, onAppPress, favorites, isFavorite, toggleFavorite }: AppDrawerProps) {
   const { colors } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedApp, setSelectedApp] = useState<AppInfo | null>(null);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [shortcuts, setShortcuts] = useState<ShortcutInfo[]>([]);
 
   const translateY = useSharedValue(0);
   const context = useSharedValue({ y: 0 });
@@ -56,6 +67,50 @@ export function AppDrawer({ apps, onAppPress }: AppDrawerProps) {
     onAppPress(app);
     toggleDrawer(false);
     Keyboard.dismiss();
+  };
+
+  const handleAppLongPress = async (app: AppInfo) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedApp(app);
+    setMenuVisible(true);
+
+    try {
+      const appShortcuts = await LauncherKit.getAppShortcuts(app.packageName);
+      setShortcuts(appShortcuts);
+    } catch (error) {
+      console.error('Failed to fetch shortcuts:', error);
+      setShortcuts([]);
+    }
+  };
+
+  const handleMenuLaunch = () => {
+    if (selectedApp) {
+      onAppPress(selectedApp);
+      toggleDrawer(false);
+      Keyboard.dismiss();
+    }
+  };
+
+  const handleMenuAppInfo = async () => {
+    if (selectedApp) {
+      await LauncherKit.openAppSettings(selectedApp.packageName);
+    }
+  };
+
+  const handleMenuUninstall = async () => {
+    if (selectedApp) {
+      await LauncherKit.uninstallApp(selectedApp.packageName);
+    }
+  };
+
+  const handleShortcutPress = async (shortcut: ShortcutInfo) => {
+    try {
+      await LauncherKit.launchShortcut(shortcut.packageName, shortcut.id);
+      toggleDrawer(false);
+      Keyboard.dismiss();
+    } catch (error) {
+      console.error('Failed to launch shortcut:', error);
+    }
   };
 
   const gesture = Gesture.Pan()
@@ -83,54 +138,93 @@ export function AppDrawer({ apps, onAppPress }: AppDrawerProps) {
   }));
 
   return (
-    <GestureDetector gesture={gesture}>
-      <Animated.View style={[styles.container, animatedStyle, { backgroundColor: colors.background }]}>
-        <Pressable style={styles.handleContainer} onPress={() => toggleDrawer(!isDrawerOpen)}>
-          <View style={[styles.handle, { backgroundColor: colors.textSecondary }]} />
-        </Pressable>
-
-        {isDrawerOpen && (
-          <View style={styles.searchContainer}>
-            <TextInput
-              style={[styles.searchInput, { backgroundColor: colors.surface, color: colors.text }]}
-              placeholder="Search apps..."
-              placeholderTextColor={colors.textSecondary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoFocus={false}
-            />
-          </View>
-        )}
-
-        <FlatList
-          data={filteredApps}
-          keyExtractor={item => item.packageName}
-          numColumns={4}
-          contentContainerStyle={styles.gridContainer}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <AppIcon app={item} onPress={() => handleAppPress(item)} />
-          )}
-          ListEmptyComponent={
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No apps found
-            </Text>
+    <>
+      <Pressable 
+        style={styles.swipeTrigger}
+        onTouchStart={() => {
+          if (!isDrawerOpen) {
+            setIsDrawerOpen(true);
+            translateY.value = withSpring(MAX_TRANSLATE_Y, { damping: 50 });
           }
-        />
-      </Animated.View>
-    </GestureDetector>
+        }}
+      />
+      <GestureDetector gesture={gesture}>
+        <Animated.View style={[styles.container, animatedStyle, { backgroundColor: colors.background }]}>
+          <Pressable style={styles.handleContainer} onPress={() => toggleDrawer(!isDrawerOpen)}>
+            <View style={[styles.handle, { backgroundColor: colors.textSecondary }]} />
+          </Pressable>
+
+          {isDrawerOpen && (
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={[styles.searchInput, { backgroundColor: colors.surface, color: colors.text }]}
+                placeholder="Search apps..."
+                placeholderTextColor={colors.textSecondary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus={false}
+              />
+            </View>
+          )}
+
+          <FlashList
+            data={filteredApps}
+            keyExtractor={item => item.packageName}
+            numColumns={4}
+            contentContainerStyle={styles.gridContainer}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <AppIcon
+                app={item}
+                onPress={() => handleAppPress(item)}
+                onLongPress={() => handleAppLongPress(item)}
+              />
+            )}
+            ListEmptyComponent={
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                No apps found
+              </Text>
+            }
+          />
+        </Animated.View>
+      </GestureDetector>
+      <AppLongPressMenu
+        visible={menuVisible}
+        app={selectedApp}
+        onClose={() => {
+          setMenuVisible(false);
+          setShortcuts([]);
+        }}
+        onLaunch={handleMenuLaunch}
+        onAppInfo={handleMenuAppInfo}
+        onUninstall={handleMenuUninstall}
+        isFavorite={isFavorite(selectedApp?.packageName || '')}
+        onToggleFavorite={() => selectedApp && toggleFavorite(selectedApp.packageName)}
+        shortcuts={shortcuts}
+        onShortcutPress={handleShortcutPress}
+      />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  swipeTrigger: {
     position: 'absolute',
-    top: SCREEN_HEIGHT,
+    bottom: 0,
     left: 0,
     right: 0,
-    height: SCREEN_HEIGHT,
+    height: HANDLE_HEIGHT,
+    zIndex: 5,
+  },
+  container: {
+    position: 'absolute',
+    bottom: -DRAWER_HEIGHT,
+    left: 0,
+    right: 0,
+    height: DRAWER_HEIGHT + HANDLE_HEIGHT,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    zIndex: 10,
   },
   handleContainer: {
     alignItems: 'center',
