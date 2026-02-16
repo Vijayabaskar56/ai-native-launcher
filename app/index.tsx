@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, View, Pressable, ActivityIndicator, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ClockWidget } from '@/components/clock-widget';
 import { Dock } from '@/components/dock';
 import { AppDrawer } from '@/components/app-drawer';
@@ -32,10 +33,10 @@ export default function HomeScreen() {
       <StatusBar hidden />
       
       <Pressable
-        style={styles.settingsButton}
-        onLongPress={() => setSettingsVisible(true)}
+        style={[styles.settingsButton, { backgroundColor: colors.surface }]}
+        onPress={() => setSettingsVisible(true)}
       >
-        <View style={styles.settingsIndicator} />
+        <MaterialCommunityIcons name="cog" size={24} color={colors.text} />
       </Pressable>
 
       <View style={styles.content}>
@@ -75,17 +76,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 60,
     right: 20,
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
-  },
-  settingsIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(128, 128, 128, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   content: {
     flex: 1,

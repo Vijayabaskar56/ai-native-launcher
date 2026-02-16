@@ -1,6 +1,7 @@
 import '../src/global.css';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider } from '@/hooks/use-app-theme';
+import { DatabaseProvider } from '@/db';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -20,12 +21,14 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-        </Stack>
-        <StatusBar hidden />
-      </ThemeProvider>
+      <DatabaseProvider>
+        <ThemeProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+          </Stack>
+          <StatusBar hidden />
+        </ThemeProvider>
+      </DatabaseProvider>
     </GestureHandlerRootView>
   );
 }

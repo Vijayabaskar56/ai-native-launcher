@@ -19,10 +19,42 @@ Claw Launcher is an Android-only launcher application built with:
 
 ## Architecture
 
-This project follows a **Layered Architecture** pattern:
+This project follows a **4-Layer Architecture** pattern, inspired by Kvaesitso:
 
-### React Native Layer (UI & Business Logic)
-Handles everything possible in React Native:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  UI Layer (React Native)                                        │
+│  - Expo Router screens                                          │
+│  - Components                                                   │
+│  - Context Providers (Theme, Settings)                         │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+┌───────────────────────────────▼─────────────────────────────────┐
+│  Services Layer (TypeScript hooks + Context)                   │
+│  - useSearch() - aggregates all search sources                  │
+│  - useFavorites() - pinned items management                     │
+│  - useBadges() - notification badges                            │
+│  - useSettings() - settings management                          │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+┌───────────────────────────────▼─────────────────────────────────┐
+│  Data Layer (Native Modules + React Native stores)             │
+│  - Native modules for system API access                         │
+│  - SQLite/MMKV for local persistence                           │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+┌───────────────────────────────▼─────────────────────────────────┐
+│  Core Layer (Types, Constants, Interfaces)                     │
+│  - Shared type definitions                                      │
+│  - Constants and configuration                                  │
+│  - Repository interfaces                                        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Layer Details
+
+#### UI Layer (React Native)
+Handles all visual rendering and user interaction:
 - **Navigation**: Expo Router file-based routing
 - **State Management**: React hooks (useState, useEffect, useCallback)
 - **Theme**: Light/dark mode with system detection
@@ -30,37 +62,76 @@ Handles everything possible in React Native:
 - **Gestures**: React Native Gesture Handler
 - **UI Components**: All visual rendering
 - **Styling**: Tailwind CSS v4 with NativeWind v5 and react-native-css
-- **Storage**: AsyncStorage for user preferences
 
-### Native Module Layer (LauncherKit)
-Handles only functionality that requires Android system APIs:
-- `getInstalledApps()` - Query PackageManager for launchable apps
-- `launchApp()` - Intent-based app launching with FLAG_ACTIVITY_NEW_TASK
-- `openAppSettings()` - Open Settings.ACTION_APPLICATION_DETAILS_SETTINGS
-- `uninstallApp()` - Trigger Intent.ACTION_DELETE
-- `hasQueryAllPackagesPermission()` - Check QUERY_ALL_PACKAGES permission
+#### Services Layer (TypeScript)
+Business logic and data orchestration:
+- **Hooks**: Domain-specific hooks that aggregate data sources
+- **Context**: React Context providers for shared state
+- **State Machines**: Complex state transitions
+
+#### Data Layer
+Persistence and system integration:
+- **SQLite/MMKV**: Local data persistence via Drizzle ORM
+- **Native Modules**: Android system API access (see below)
+
+#### Core Layer
+Shared foundation:
+- **Types**: TypeScript interfaces and types
+- **Constants**: App-wide configuration
+- **Repository Interfaces**: Contracts for data access
+
+### Native Module Organization (Hybrid Approach)
+
+Native modules are organized into logical groups:
+
+```
+modules/
+├── launcher-kit/           # Core launcher APIs (always needed)
+│   ├── Apps (PackageManager)
+│   ├── Launch (Intents)
+│   ├── Wallpaper (WallpaperManager)
+│   ├── SystemBars (WindowInsets)
+│   └── DefaultLauncher (role verification)
+│
+├── launcher-search/        # Search integrations pack
+│   ├── Contacts (ContactsContract)
+│   ├── Calendar (CalendarContract)
+│   ├── Files (SAF, Nextcloud API)
+│   └── AppShortcuts (LauncherApps)
+│
+├── launcher-widgets/       # Home screen widgets
+│   ├── AppWidgetHost
+│   ├── WidgetBinding
+│   └── WidgetLayout
+│
+└── launcher-notifications/ # Notification badges & actions
+    ├── NotificationListenerService
+    ├── BadgeCounts
+    └── AccessibilityService (gestures)
+```
 
 ### Integration Pattern
 ```
-React Native UI → Hooks (use-installed-apps.ts) → LauncherKit (TS API) → Native Kotlin Module
+UI Component → useSearch() → [LauncherSearch, SQLite] → Native Module
 ```
 
 ### Decision Framework
 When adding new functionality:
 1. **Can it be done in React Native?** → Do it in React Native
-2. **Does it require Android system APIs?** → Add to LauncherKit native module
-3. **Does it require platform-specific UI?** → Use native module for data, RN for UI
+2. **Does it require Android system APIs?** → Add to appropriate native module
+3. **Which module fits?** → launcher-kit (core), launcher-search (data), launcher-widgets, launcher-notifications
 
 ### Examples
 | Functionality | Layer | Reason |
 |---------------|-------|--------|
-| App grid display | React Native | Pure UI rendering |
-| Swipe gestures | React Native | Reanimated + Gesture Handler |
-| Get installed apps | Native Module | Requires PackageManager API |
-| Launch an app | Native Module | Requires Intent system |
-| Search filtering | React Native | Client-side array filtering |
-| App favorites | React Native | AsyncStorage persistence |
-| Wallpaper | Native Module | Requires WallpaperManager API |
+| App grid display | UI | Pure rendering |
+| Swipe gestures | UI | Reanimated + Gesture Handler |
+| Get installed apps | launcher-kit | PackageManager API |
+| Contact search | launcher-search | ContactsContract API |
+| Widget display | launcher-widgets | AppWidgetHost API |
+| Notification badges | launcher-notifications | NotificationListenerService |
+| Settings persistence | Data (SQLite) | Local storage |
+| Search aggregation | Services | Business logic |
 
 ## Reference Implementation
 
@@ -71,16 +142,23 @@ When working on new features or design decisions:
 - Study how Kvaesitso implements similar functionality natively
 - Adapt native patterns to React Native where possible
 - Add native module APIs only when system access is required
+- Match Kvaesitso's layering: Services orchestrate, Data implements, UI presents
 
-### Future Native Functionality (Needs LauncherKit)
-- Permission request flow (QUERY_ALL_PACKAGES)
-- Wallpaper access (WallpaperManager)
-- Home screen widgets (AppWidgetHost)
-- Notification badges (NotificationListenerService)
-- Recent apps (UsageStatsManager)
-- Set as default launcher prompt
-- App shortcuts (LauncherApps.getShortcutConfigurations)
-- Badged icons (notification counts)
+### Feature Implementation Status
+
+| Feature | Module | Status |
+|---------|--------|--------|
+| App listing/launching | launcher-kit | ✅ Done |
+| Wallpaper | launcher-kit | 📋 Planned |
+| System bars | launcher-kit | 📋 Planned |
+| Default launcher | launcher-kit | 📋 Planned |
+| Contact search | launcher-search | 📋 Planned |
+| Calendar search | launcher-search | 📋 Planned |
+| File search | launcher-search | 📋 Planned |
+| App shortcuts | launcher-search | 📋 Planned |
+| Home widgets | launcher-widgets | 📋 Planned |
+| Notification badges | launcher-notifications | 📋 Planned |
+| Gesture actions | launcher-notifications | 📋 Planned |
 
 ## Build Commands
 
@@ -105,18 +183,48 @@ npx expo prebuild --clean    # Clean and regenerate android/
 app/                    # Expo Router screens (file-based routing)
   _layout.tsx           # Root layout with providers
   index.tsx             # Home screen (launcher main view)
+  settings/             # Settings screens (Phase 1 & 2)
+    _layout.tsx         # Stack navigator
+    index.tsx           # Main settings screen
+    appearance.tsx      # Theme, colors, shapes
+    homescreen.tsx      # Clock, search bar, wallpaper
+    icons.tsx           # Grid, icons, badges
+    gestures.tsx        # Gesture actions
+    locale.tsx          # Time, measurement
+    about.tsx           # Version info
+    search.tsx          # Phase 2
+    integrations.tsx    # Phase 2
+    plugins.tsx         # Phase 2
+    backup.tsx          # Phase 2
+    debug.tsx           # Phase 2
 
 components/             # Reusable React components
   ui/                   # UI primitives (icons, collapsible, etc.)
+  preferences/          # Settings preference components
+    Preference.tsx
+    PreferenceCategory.tsx
+    SwitchPreference.tsx
+    ListPreference.tsx
+    SliderPreference.tsx
+    PreferenceScreen.tsx
   app-drawer.tsx        # App drawer with gesture handling
   clock-widget.tsx      # Clock display widget
   dock.tsx              # Bottom dock for quick access apps
   app-icon.tsx          # Individual app icon component
 
-hooks/                  # Custom React hooks
+hooks/                  # Custom React hooks (Services Layer)
   use-installed-apps.ts # Hook for fetching installed apps
   use-app-theme.tsx     # Theme context and hook
   use-color-scheme.ts   # Platform color scheme detection
+  use-settings.ts       # Settings management hook
+  use-search.ts         # Search aggregation hook
+  use-favorites.ts      # Pinned items management
+  use-badges.ts         # Notification badges
+
+services/               # Business logic services
+  settings-service.ts   # Settings persistence (SQLite/MMKV)
+  search-service.ts     # Search orchestration
+  favorites-service.ts  # Favorites CRUD
 
 src/
   global.css            # Tailwind CSS imports and theme variables
@@ -125,10 +233,26 @@ src/
     image.tsx           # Image component wrapper
     animated.tsx        # Animated component variants
 
-modules/launcher-kit/   # Custom Expo native module
-  src/index.ts          # TypeScript API for native module
-  android/              # Kotlin native implementation
-  expo-module.config.json
+core/                   # Core Layer (Types, Constants, Interfaces)
+  types/                # TypeScript type definitions
+    app.ts              # App-related types
+    settings.ts         # Settings types
+    search.ts           # Search-related types
+  constants/            # App-wide configuration
+    settings-labels.ts  # String labels for settings
+    defaults.ts         # Default values
+  interfaces/           # Repository contracts
+    app-repository.ts
+    search-repository.ts
+
+modules/                # Native Modules (Data Layer)
+  launcher-kit/         # Core launcher APIs
+    src/index.ts        # TypeScript API
+    android/            # Kotlin implementation
+    expo-module.config.json
+  launcher-search/      # Search integrations (Phase 2)
+  launcher-widgets/     # Home screen widgets (Phase 2)
+  launcher-notifications/ # Notification badges (Phase 2)
 
 references/             # Reference implementations (git-ignored)
   Kvaesitso/            # Kvaesitso launcher for reference
@@ -264,18 +388,46 @@ const { colors } = useTheme();
 
 Available colors: `background`, `surface`, `text`, `textSecondary`, `accent`, `border`, `dock`, `overlay`
 
-## Native Module (LauncherKit)
+## Native Modules
 
+### launcher-kit (Core)
 Located in `modules/launcher-kit/`. Uses modern Expo Modules API.
 
-Available methods:
-
+**Available methods:**
 - `getInstalledApps(): Promise<AppInfo[]>` - Get all launchable apps
 - `launchApp(packageName: string): Promise<void>` - Launch an app
 - `openAppSettings(packageName: string): Promise<void>` - Open app settings
 - `uninstallApp(packageName: string): Promise<void>` - Trigger uninstall
 - `hasQueryAllPackagesPermission(): Promise<boolean>` - Check permission
 - `requestQueryAllPackagesPermission(): Promise<boolean>` - Request permission
+
+**Planned methods:**
+- `getWallpaper(): Promise<string>` - Get current wallpaper URI
+- `setWallpaper(uri: string): Promise<void>` - Set wallpaper
+- `setSystemBarsColor(statusBarColor: string, navBarColor: string): Promise<void>` - Set system bar colors
+- `isDefaultLauncher(): Promise<boolean>` - Check if default launcher
+- `requestDefaultLauncher(): Promise<void>` - Prompt to set as default
+
+### launcher-search (Phase 2)
+**Planned methods:**
+- `searchContacts(query: string): Promise<Contact[]>` - Search contacts
+- `searchCalendar(query: string): Promise<CalendarEvent[]>` - Search calendar events
+- `searchFiles(query: string): Promise<FileInfo[]>` - Search files
+- `getAppShortcuts(packageName: string): Promise<Shortcut[]>` - Get app shortcuts
+
+### launcher-widgets (Phase 2)
+**Planned methods:**
+- `getWidgetProviders(): Promise<WidgetProvider[]>` - Get available widget providers
+- `bindWidget(providerId: string): Promise<WidgetInfo>` - Bind a widget
+- `removeWidget(widgetId: string): Promise<void>` - Remove a widget
+- `updateWidget(widgetId: string): Promise<void>` - Update widget content
+
+### launcher-notifications (Phase 2)
+**Planned methods:**
+- `getNotificationCounts(): Promise<NotificationCounts>` - Get badge counts per app
+- `requestNotificationAccess(): Promise<boolean>` - Request notification access
+- `hasNotificationAccess(): Promise<boolean>` - Check notification access
+- `performGlobalAction(action: GlobalAction): Promise<void>` - Perform gesture actions (accessibility)
 
 ## Platform Notes
 
