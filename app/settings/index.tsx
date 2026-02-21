@@ -58,6 +58,12 @@ export default function SettingsScreen() {
               onClick={() => router.push('/settings/gestures')}
             />
             <Preference
+              title={SETTINGS_LABELS.preference_screen_search}
+              summary={SETTINGS_LABELS.preference_screen_search_summary}
+              icon={renderIcon('magnify')}
+              onClick={() => router.push('/settings/search')}
+            />
+            <Preference
               title={SETTINGS_LABELS.preference_screen_locale}
               summary={SETTINGS_LABELS.preference_screen_locale_summary}
               icon={renderIcon('translate')}
@@ -65,7 +71,34 @@ export default function SettingsScreen() {
             />
           </PreferenceCategory>
 
-          <PreferenceCategory title="More">
+          <PreferenceCategory title="Integrations">
+            <Preference
+              title={SETTINGS_LABELS.preference_screen_integrations}
+              summary={SETTINGS_LABELS.preference_screen_integrations_summary}
+              icon={renderIcon('power-plug')}
+              onClick={() => router.push('/settings/integrations')}
+            />
+            <Preference
+              title={SETTINGS_LABELS.preference_screen_plugins}
+              summary={SETTINGS_LABELS.preference_screen_plugins_summary}
+              icon={renderIcon('puzzle')}
+              onClick={() => router.push('/settings/plugins')}
+            />
+          </PreferenceCategory>
+
+          <PreferenceCategory title="System">
+            <Preference
+              title={SETTINGS_LABELS.preference_screen_backup}
+              summary={SETTINGS_LABELS.preference_screen_backup_summary}
+              icon={renderIcon('backup-restore')}
+              onClick={() => router.push('/settings/backup')}
+            />
+            <Preference
+              title={SETTINGS_LABELS.preference_screen_debug}
+              summary={SETTINGS_LABELS.preference_screen_debug_summary}
+              icon={renderIcon('bug')}
+              onClick={() => router.push('/settings/debug')}
+            />
             <Preference
               title={SETTINGS_LABELS.preference_screen_about}
               summary={SETTINGS_LABELS.preference_screen_about_summary}

@@ -6,7 +6,24 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import 'react-native-reanimated';
+
+// Lazy-load permission modules to avoid crash if native modules aren't built yet
+let Calendar: typeof import('expo-calendar') | null = null;
+let Location: typeof import('expo-location') | null = null;
+try { Calendar = require('expo-calendar'); } catch {}
+try { Location = require('expo-location'); } catch {}
+
+/** Request all permissions the launcher needs, once at startup. */
+async function requestPermissionsUpfront() {
+  if (Platform.OS !== 'android') return;
+
+  await Promise.allSettled([
+    Calendar?.requestCalendarPermissionsAsync(),
+    Location?.requestForegroundPermissionsAsync(),
+  ]);
+}
 
 SplashScreen.preventAutoHideAsync();
 
@@ -16,7 +33,7 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   useEffect(() => {
-    SplashScreen.hideAsync();
+    requestPermissionsUpfront().finally(() => SplashScreen.hideAsync());
   }, []);
 
   return (

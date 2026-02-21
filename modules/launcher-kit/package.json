@@ -6,11 +6,9 @@
   "keywords": [],
   "author": "",
   "license": "MIT",
-  "dependencies": {
-    "expo-modules-core": "^3.0.29"
-  },
   "peerDependencies": {
     "expo": "*",
-    "expo-modules-core": "*"
+    "expo-modules-core": "*",
+    "react-native": "*"
   }
 }

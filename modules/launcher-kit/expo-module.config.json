@@ -2,6 +2,11 @@
   "platforms": ["android"],
   "name": "LauncherKit",
   "android": {
-    "modules": ["expo.modules.launcherkit.LauncherKitModule"]
+    "modules": [
+      "expo.modules.launcherkit.LauncherKitModule",
+      "expo.modules.launcherkit.MediaSessionModule",
+      "expo.modules.launcherkit.AppWidgetHostModule",
+      "expo.modules.launcherkit.AppWidgetHostViewModule"
+    ]
   }
 }

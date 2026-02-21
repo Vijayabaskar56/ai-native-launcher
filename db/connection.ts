@@ -322,6 +322,13 @@ async function runMigrations(sqlite: SQLite.SQLiteDatabase) {
           "updated_at" integer NOT NULL
         );
       `
+    },
+    {
+      hash: '0001_widgets_v2',
+      sql: `
+        ALTER TABLE "widgets" ADD COLUMN "app_widget_id" integer;
+        ALTER TABLE "widgets" ADD COLUMN "sizing" text DEFAULT 'border';
+      `
     }
   ];
 
@@ -338,22 +345,61 @@ async function runMigrations(sqlite: SQLite.SQLiteDatabase) {
 
 async function seedDefaultData(db: ReturnType<typeof drizzle>) {
   const existingActions = await db.select().from(searchActions).limit(1);
-  
-  if (existingActions.length > 0) return;
 
-  const defaultActions = [
-    { position: 0, type: 'call' as const },
-    { position: 1, type: 'message' as const },
-    { position: 2, type: 'email' as const },
-    { position: 3, type: 'contact' as const },
-    { position: 4, type: 'alarm' as const },
-    { position: 5, type: 'timer' as const },
-    { position: 6, type: 'calendar' as const },
-    { position: 7, type: 'website' as const },
-    { position: 8, type: 'websearch' as const },
-  ];
+  if (existingActions.length === 0) {
+    const defaultActions = [
+      { position: 0, type: 'call' as const },
+      { position: 1, type: 'message' as const },
+      { position: 2, type: 'email' as const },
+      { position: 3, type: 'contact' as const },
+      { position: 4, type: 'alarm' as const },
+      { position: 5, type: 'timer' as const },
+      { position: 6, type: 'calendar' as const },
+      { position: 7, type: 'website' as const },
+      { position: 8, type: 'websearch' as const },
+    ];
 
-  await db.insert(searchActions).values(defaultActions);
+    await db.insert(searchActions).values(defaultActions);
+  }
+
+  // Seed default widgets on first launch
+  const existingWidgets = await db.select().from(schema.widgets).limit(1);
+  if (existingWidgets.length === 0) {
+    const now = Date.now();
+    const defaultWidgets = [
+      {
+        id: now.toString(36) + 'clk',
+        type: 'clock' as const,
+        config: JSON.stringify({ clockFace: 'digital1' }),
+        position: 0,
+        parentId: null,
+        appWidgetId: null,
+        sizing: 'full' as const,
+      },
+      {
+        id: (now + 1).toString(36) + 'wth',
+        type: 'weather' as const,
+        config: JSON.stringify({ units: 'celsius', showForecast: false }),
+        position: 1,
+        parentId: null,
+        appWidgetId: null,
+        sizing: 'border' as const,
+      },
+      {
+        id: (now + 2).toString(36) + 'msc',
+        type: 'music' as const,
+        config: JSON.stringify({ showAlbumArt: true }),
+        position: 2,
+        parentId: null,
+        appWidgetId: null,
+        sizing: 'border' as const,
+      },
+    ];
+
+    for (const w of defaultWidgets) {
+      await db.insert(schema.widgets).values(w);
+    }
+  }
 }
 
 export type Database = ReturnType<typeof drizzle>;
